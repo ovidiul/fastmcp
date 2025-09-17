@@ -548,9 +548,10 @@ type ServerOptions<T extends FastMCPSessionAuth> = {
   /**
    * Configuration for the health-check endpoint that can be exposed when the
    * server is running using the HTTP Stream transport. When enabled, the
-   * server will respond to an HTTP GET request with the configured path (by
+   * server will respond to HTTP GET and HEAD requests with the configured path (by
    * default "/health") rendering a plain-text response (by default "ok") and
-   * the configured status code (by default 200).
+   * the configured status code (by default 200). For HEAD requests, only
+   * headers are returned without a response body.
    *
    * The endpoint is only added when the server is started with
    * `transportType: "httpStream"` – it is ignored for the stdio transport.
@@ -2271,13 +2272,18 @@ export class FastMCP<
       const url = new URL(req.url || "", `http://${host}`);
 
       try {
-        if (req.method === "GET" && url.pathname === path) {
-          res
-            .writeHead(healthConfig.status ?? 200, {
-              "Content-Type": "text/plain",
-            })
-            .end(healthConfig.message ?? "✓ Ok");
-
+        if (
+          (req.method === "GET" || req.method === "HEAD") &&
+          url.pathname === path
+        ) {
+          res.writeHead(healthConfig.status ?? 200, {
+            "Content-Type": "text/plain",
+          });
+          if (req.method === "GET") {
+            res.end(healthConfig.message ?? "✓ Ok");
+          } else {
+            res.end(); // HEAD: Send headers only, no body
+          }
           return;
         }
 

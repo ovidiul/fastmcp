@@ -210,6 +210,71 @@ test("health endpoint returns ok", async () => {
   }
 });
 
+test("health endpoint supports HEAD requests", async () => {
+  const port = await getRandomPort();
+
+  const server = new FastMCP({
+    health: { message: "healthy", path: "/healthz", status: 201 },
+    name: "Test",
+    version: "1.0.0",
+  });
+
+  await server.start({
+    httpStream: { port },
+    transportType: "httpStream",
+  });
+
+  try {
+    // Test HEAD request
+    const headResponse = await fetch(`http://localhost:${port}/healthz`, {
+      method: "HEAD",
+    });
+    expect(headResponse.status).toBe(201);
+    expect(headResponse.headers.get("content-type")).toBe("text/plain");
+    expect(await headResponse.text()).toBe(""); // HEAD should have no body
+
+    // Verify GET still works
+    const getResponse = await fetch(`http://localhost:${port}/healthz`);
+    expect(getResponse.status).toBe(201);
+    expect(getResponse.headers.get("content-type")).toBe("text/plain");
+    expect(await getResponse.text()).toBe("healthy");
+  } finally {
+    await server.stop();
+  }
+});
+
+test("default health endpoint supports HEAD requests", async () => {
+  const port = await getRandomPort();
+
+  const server = new FastMCP({
+    name: "Test",
+    version: "1.0.0",
+  });
+
+  await server.start({
+    httpStream: { port },
+    transportType: "httpStream",
+  });
+
+  try {
+    // Test HEAD request on default path
+    const headResponse = await fetch(`http://localhost:${port}/health`, {
+      method: "HEAD",
+    });
+    expect(headResponse.status).toBe(200);
+    expect(headResponse.headers.get("content-type")).toBe("text/plain");
+    expect(await headResponse.text()).toBe(""); // HEAD should have no body
+
+    // Verify GET still works
+    const getResponse = await fetch(`http://localhost:${port}/health`);
+    expect(getResponse.status).toBe(200);
+    expect(getResponse.headers.get("content-type")).toBe("text/plain");
+    expect(await getResponse.text()).toBe("✓ Ok");
+  } finally {
+    await server.stop();
+  }
+});
+
 test("calls a tool", async () => {
   await runWithTestServer({
     run: async ({ client }) => {
